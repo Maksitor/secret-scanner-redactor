@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from scanner import scan_text
+from scanner import scan_text, scan_with_ai
+from dotenv import load_dotenv
+from typing import List, Optional
+
+load_dotenv()  # ucitaj .env fajl
 
 app = FastAPI(title="Secret Scanner & Redactor")
 
@@ -12,10 +16,11 @@ class Finding(BaseModel):
     value: str
     start: int
     end: int
-    entropy: float | None = None
+    entropy: Optional[float] = None
+    score: Optional[float] = None
 
 class ScanResponse(BaseModel):
-    findings: list[Finding]
+    findings: List[Finding]
 
 @app.get("/")
 async def root():
@@ -23,7 +28,10 @@ async def root():
 
 @app.post("/scan", response_model=ScanResponse)
 async def scan(request: ScanRequest):
-    results = scan_text(request.text)
-    # Konvertujemo u listu Finding objekata; za entropiju koristimo None ako nema
-    findings = [Finding(**r) for r in results]
-    return ScanResponse(findings=findings)
+    findings = scan_text(request.text)
+    # ai_findings = scan_with_ai(request.text)   # privremeno isključen AI
+    ai_findings = []                            # prazna lista dok ne rešimo mrežu
+    all_findings = findings + ai_findings
+    all_findings.sort(key=lambda x: x["start"])
+    result = [Finding(**f) for f in all_findings]
+    return ScanResponse(findings=result)
