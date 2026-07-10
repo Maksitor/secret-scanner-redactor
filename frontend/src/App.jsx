@@ -1,121 +1,114 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [text, setText] = useState('')
+  const [findings, setFindings] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleScan = async () => {
+    if (!text.trim()) return
+    setLoading(true)
+    setError('')
+    try {
+      const response = await fetch('http://127.0.0.1:8000/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      })
+      if (!response.ok) throw new Error('Server error')
+      const data = await response.json()
+      setFindings(data.findings || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Kreiraj maskiranu verziju teksta
+  const maskText = () => {
+    if (findings.length === 0) return text
+    let result = text
+    // Slažemo opadajuće po poziciji da zamena ne poremeti indekse
+    const sorted = [...findings].sort((a, b) => b.start - a.start)
+    for (const f of sorted) {
+      const before = result.substring(0, f.start)
+      const after = result.substring(f.end)
+      result = before + '[REDACTED]' + after
+    }
+    return result
+  }
+
+  // Preuzimanje očišćenog teksta kao .txt fajl
+  const downloadClean = () => {
+    const cleanText = maskText()
+    const blob = new Blob([cleanText], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'cleaned_text.txt'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
+    <div className="app-container">
+      <h1>🔍 Secret Scanner & Redactor</h1>
+      <p>Pronađi i maskiraj API ključeve, lozinke, e‑mailove i druge osetljive podatke.</p>
+
+      <textarea
+        rows={8}
+        placeholder="Unesite tekst koji želite da skenirate..."
+        value={text}
+        onChange={e => setText(e.target.value)}
+      />
+
+      <div className="button-group">
+        <button onClick={handleScan} disabled={loading}>
+          {loading ? 'Skeniram...' : 'Skeniraj'}
         </button>
-      </section>
+        <button onClick={downloadClean} disabled={findings.length === 0}>
+          Preuzmi očišćeni tekst
+        </button>
+      </div>
 
-      <div className="ticks"></div>
+      {error && <div className="error">Greška: {error}</div>}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      {findings.length > 0 && (
+        <>
+          <h2>Rezultati</h2>
+          <div className="results">
+            <div className="highlighted-text">
+              {maskText().split('[REDACTED]').reduce((acc, part, i) => {
+                if (i === 0) return [part]
+                return [...acc, <mark key={i}>[REDACTED]</mark>, part]
+              }, [])}
+            </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+            <table>
+              <thead>
+                <tr>
+                  <th>Tip</th>
+                  <th>Vrednost</th>
+                  <th>Pozicija</th>
+                </tr>
+              </thead>
+              <tbody>
+                {findings.map((f, i) => (
+                  <tr key={i}>
+                    <td>{f.type}</td>
+                    <td><code>{f.value}</code></td>
+                    <td>{f.start}-{f.end}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
