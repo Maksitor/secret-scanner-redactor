@@ -1,11 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
+
+const DEMO_TEXT = `Log in using email: admin@company.com and password: SuperSecret123!
+AWS Access Key: AKIAIOSFODNN7EXAMPLE
+GitHub token: ghp_1234567890abcdefghijklmnopqrstuv
+Contact: John Doe from Google visited Paris last week.`
 
 function App() {
   const [text, setText] = useState('')
   const [findings, setFindings] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('darkMode') === 'true'
+  })
+
+  useEffect(() => {
+    document.body.classList.toggle('dark', darkMode)
+    localStorage.setItem('darkMode', darkMode)
+  }, [darkMode])
 
   const handleScan = async () => {
     if (!text.trim()) return
@@ -27,11 +40,9 @@ function App() {
     }
   }
 
-  // Kreiraj maskiranu verziju teksta
   const maskText = () => {
     if (findings.length === 0) return text
     let result = text
-    // Slažemo opadajuće po poziciji da zamena ne poremeti indekse
     const sorted = [...findings].sort((a, b) => b.start - a.start)
     for (const f of sorted) {
       const before = result.substring(0, f.start)
@@ -41,7 +52,6 @@ function App() {
     return result
   }
 
-  // Preuzimanje očišćenog teksta kao .txt fajl
   const downloadClean = () => {
     const cleanText = maskText()
     const blob = new Blob([cleanText], { type: 'text/plain' })
@@ -53,60 +63,72 @@ function App() {
     URL.revokeObjectURL(url)
   }
 
+  const loadDemo = () => {
+    setText(DEMO_TEXT)
+    setFindings([])
+  }
+
   return (
-    <div className="app-container">
-      <h1>🔍 Secret Scanner & Redactor</h1>
-      <p>Pronađi i maskiraj API ključeve, lozinke, e‑mailove i druge osetljive podatke.</p>
+    <div className={`app-container ${darkMode ? 'dark' : ''}`}>
+      <header>
+        <h1>Secret Scanner & Redactor</h1>
+        <button className="theme-toggle" onClick={() => setDarkMode(!darkMode)}>
+          {darkMode ? 'Light Mode' : 'Dark Mode'}
+        </button>
+      </header>
+
+      <p>Find and redact API keys, passwords, email addresses, and other sensitive data.</p>
 
       <textarea
         rows={8}
-        placeholder="Unesite tekst koji želite da skenirate..."
+        placeholder="Enter text to scan..."
         value={text}
         onChange={e => setText(e.target.value)}
       />
 
       <div className="button-group">
         <button onClick={handleScan} disabled={loading}>
-          {loading ? 'Skeniram...' : 'Skeniraj'}
+          {loading ? 'Scanning...' : 'Scan'}
         </button>
         <button onClick={downloadClean} disabled={findings.length === 0}>
-          Preuzmi očišćeni tekst
+          Download Clean Text
+        </button>
+        <button className="demo-btn" onClick={loadDemo}>
+          Load Demo Text
         </button>
       </div>
 
-      {error && <div className="error">Greška: {error}</div>}
+      {error && <div className="error">Error: {error}</div>}
 
       {findings.length > 0 && (
-        <>
-          <h2>Rezultati</h2>
-          <div className="results">
-            <div className="highlighted-text">
-              {maskText().split('[REDACTED]').reduce((acc, part, i) => {
-                if (i === 0) return [part]
-                return [...acc, <mark key={i}>[REDACTED]</mark>, part]
-              }, [])}
-            </div>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>Tip</th>
-                  <th>Vrednost</th>
-                  <th>Pozicija</th>
-                </tr>
-              </thead>
-              <tbody>
-                {findings.map((f, i) => (
-                  <tr key={i}>
-                    <td>{f.type}</td>
-                    <td><code>{f.value}</code></td>
-                    <td>{f.start}-{f.end}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="results">
+          <h2>Results ({findings.length} items found)</h2>
+          <div className="highlighted-text">
+            {maskText().split('[REDACTED]').reduce((acc, part, i) => {
+              if (i === 0) return [part]
+              return [...acc, <mark key={i} title="Sensitive data">[REDACTED]</mark>, part]
+            }, [])}
           </div>
-        </>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Value</th>
+                <th>Position</th>
+              </tr>
+            </thead>
+            <tbody>
+              {findings.map((f, i) => (
+                <tr key={i}>
+                  <td>{f.type}</td>
+                  <td><code>{f.value}</code></td>
+                  <td>{f.start}-{f.end}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )
