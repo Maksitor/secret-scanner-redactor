@@ -20,12 +20,14 @@ function App() {
     localStorage.setItem('darkMode', darkMode)
   }, [darkMode])
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+
   const handleScan = async () => {
     if (!text.trim()) return
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('http://127.0.0.1:8000/scan', {
+      const response = await fetch(`${API_URL}/scan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
@@ -70,65 +72,79 @@ function App() {
 
   return (
     <div className={`app-container ${darkMode ? 'dark' : ''}`}>
-      <header>
-        <h1>Secret Scanner & Redactor</h1>
+      <header className="app-header">
+        <div className="title-group">
+          <h1>Secret Scanner & Redactor</h1>
+          <p className="subtitle">
+            Find and redact API keys, passwords, email addresses, and other sensitive data.
+          </p>
+        </div>
         <button className="theme-toggle" onClick={() => setDarkMode(!darkMode)}>
           {darkMode ? 'Light Mode' : 'Dark Mode'}
         </button>
       </header>
 
-      <p>Find and redact API keys, passwords, email addresses, and other sensitive data.</p>
+      <section className="input-section card">
+        <textarea
+          rows={8}
+          placeholder="Enter text to scan..."
+          value={text}
+          onChange={e => setText(e.target.value)}
+        />
 
-      <textarea
-        rows={8}
-        placeholder="Enter text to scan..."
-        value={text}
-        onChange={e => setText(e.target.value)}
-      />
+        <div className="button-group">
+          <button onClick={handleScan} disabled={loading}>
+            {loading ? 'Scanning...' : 'Scan'}
+          </button>
+          <button onClick={downloadClean} disabled={findings.length === 0}>
+            Download Clean Text
+          </button>
+          <button className="demo-btn" onClick={loadDemo}>
+            Load Demo Text
+          </button>
+        </div>
 
-      <div className="button-group">
-        <button onClick={handleScan} disabled={loading}>
-          {loading ? 'Scanning...' : 'Scan'}
-        </button>
-        <button onClick={downloadClean} disabled={findings.length === 0}>
-          Download Clean Text
-        </button>
-        <button className="demo-btn" onClick={loadDemo}>
-          Load Demo Text
-        </button>
-      </div>
-
-      {error && <div className="error">Error: {error}</div>}
+        {error && <div className="error">Error: {error}</div>}
+      </section>
 
       {findings.length > 0 && (
-        <div className="results">
-          <h2>Results ({findings.length} items found)</h2>
-          <div className="highlighted-text">
-            {maskText().split('[REDACTED]').reduce((acc, part, i) => {
-              if (i === 0) return [part]
-              return [...acc, <mark key={i} title="Sensitive data">[REDACTED]</mark>, part]
-            }, [])}
+        <section className="results-section">
+          <h2>Results <span className="badge">{findings.length}</span></h2>
+
+          <div className="card">
+            <h3>Redacted Preview</h3>
+            <div className="highlighted-text">
+              {maskText().split('[REDACTED]').reduce((acc, part, i) => {
+                if (i === 0) return [part]
+                return [...acc, <mark key={i} title="Sensitive data">[REDACTED]</mark>, part]
+              }, [])}
+            </div>
           </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Value</th>
-                <th>Position</th>
-              </tr>
-            </thead>
-            <tbody>
-              {findings.map((f, i) => (
-                <tr key={i}>
-                  <td>{f.type}</td>
-                  <td><code>{f.value}</code></td>
-                  <td>{f.start}-{f.end}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          <div className="card">
+            <h3>Detected Items</h3>
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Value</th>
+                    <th>Position</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {findings.map((f, i) => (
+                    <tr key={i}>
+                      <td>{f.type}</td>
+                      <td><code>{f.value}</code></td>
+                      <td>{f.start}-{f.end}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
       )}
     </div>
   )
